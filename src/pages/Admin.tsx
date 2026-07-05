@@ -14,6 +14,7 @@ import {
   listAccess,
   listAdmins,
   listSuggestions,
+  resetRecoveryCode,
   revokeAccess,
   revokeAdmin,
   updateGameCategory,
@@ -163,7 +164,7 @@ function MembersTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "access"] }),
   });
   const promote = useMutation({
-    mutationFn: (vars: { ip: string; name: string }) => grantAdmin(vars.ip, vars.name),
+    mutationFn: (vars: { deviceId: string; name: string }) => grantAdmin(vars.deviceId, vars.name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "access"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
@@ -198,9 +199,9 @@ function MembersTab() {
                       Unlimited
                     </span>
                   )}
-                  {access.isOwner && m.access_type === "unlimited" && (
+                  {access.isOwner && m.access_type === "unlimited" && m.device_id && (
                     <button
-                      onClick={() => promote.mutate({ ip: m.ip, name: m.name })}
+                      onClick={() => promote.mutate({ deviceId: m.device_id!, name: m.name })}
                       disabled={promote.isPending}
                       className="rounded-md border border-a3 px-3 py-2 font-display text-xs font-bold uppercase tracking-[0.12em] text-a1 transition-colors hover:bg-a3/20 disabled:opacity-50"
                       title="Give this member admin access"
@@ -250,8 +251,46 @@ function MembersTab() {
 
 // ---- Admins tab (owner only) --------------------------------------------------------
 
+function RecoveryCodePanel() {
+  const [code, setCode] = useState<string | null>(null);
+  const reset = useMutation({
+    mutationFn: resetRecoveryCode,
+    onSuccess: (res) => setCode(res.code),
+  });
+
+  return (
+    <div className="gold-frame mt-6 rounded-xl bg-panel2 p-5">
+      <h3 className="font-display text-xs font-bold uppercase tracking-[0.2em] text-txt">
+        Owner recovery code
+      </h3>
+      <p className="mt-2 text-sm text-mut">
+        This secret code gets you back in as owner on any device or network — enter it on the
+        locked screen via "Owner? Recover access". Keep it somewhere safe. Resetting it makes the
+        old code stop working.
+      </p>
+      {code ? (
+        <div className="mt-3 rounded-lg border border-a2/50 bg-bg p-4 text-center">
+          <p className="font-mono text-lg font-bold tracking-widest text-a1">{code}</p>
+          <p className="mt-1 text-xs text-mut">
+            Write this down now — it won't be shown again.
+          </p>
+        </div>
+      ) : null}
+      {reset.isError && (
+        <p className="mt-2 text-sm text-red-400">{(reset.error as Error).message}</p>
+      )}
+      <button
+        onClick={() => reset.mutate()}
+        disabled={reset.isPending}
+        className="mt-4 rounded-md border border-a3 px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.12em] text-a1 transition-colors hover:bg-a3/20 disabled:opacity-50"
+      >
+        {reset.isPending ? "Generating…" : code ? "Reset again" : "Generate a new code"}
+      </button>
+    </div>
+  );
+}
+
 function AdminsTab() {
-  const access = useAccess();
   const queryClient = useQueryClient();
   const admins = useQuery({
     queryKey: ["admin", "admins"],
@@ -259,7 +298,7 @@ function AdminsTab() {
     refetchInterval: 30_000,
   });
   const revoke = useMutation({
-    mutationFn: revokeAdmin,
+    mutationFn: (deviceId: string) => revokeAdmin(deviceId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "access"] });
@@ -270,41 +309,43 @@ function AdminsTab() {
   if (admins.isError) return <Empty text={(admins.error as Error).message} />;
 
   return (
-    <SectionCard title={`Admins — ${admins.data.length}`}>
-      <p className="mb-4 text-sm text-mut">
-        You (the owner) can promote any full-time member to admin from the Members tab. Admins can
-        do everything except manage this list. Only you can revoke an admin.
-      </p>
-      <ul className="divide-y divide-line">
-        {admins.data.map((a) => (
-          <li key={a.ip} className="flex flex-wrap items-center gap-3 py-4">
-            <div className="min-w-40">
-              <p className="font-display text-sm font-bold text-txt">{a.name}</p>
-              <p className="mt-0.5 font-mono text-xs text-mut">{a.ip}</p>
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              <span
-                className={`font-display text-xs font-bold uppercase tracking-[0.15em] ${
-                  a.is_owner ? "metal-text" : "text-mut"
-                }`}
-              >
-                {a.is_owner ? "Owner" : "Admin"}
-                {a.ip === access.ip && !a.is_owner ? " · you" : ""}
-              </span>
-              {!a.is_owner && (
-                <button
-                  onClick={() => revoke.mutate(a.ip)}
-                  disabled={revoke.isPending}
-                  className={dangerBtn}
+    <div>
+      <SectionCard title={`Admins — ${admins.data.length}`}>
+        <p className="mb-4 text-sm text-mut">
+          You (the owner) can promote any full-time member to admin from the Members tab. Admins can
+          do everything except manage this list. Only you can revoke an admin.
+        </p>
+        <ul className="divide-y divide-line">
+          {admins.data.map((a) => (
+            <li key={a.device_id ?? a.ip} className="flex flex-wrap items-center gap-3 py-4">
+              <div className="min-w-40">
+                <p className="font-display text-sm font-bold text-txt">{a.name}</p>
+                <p className="mt-0.5 font-mono text-xs text-mut">last seen {a.ip}</p>
+              </div>
+              <div className="ml-auto flex items-center gap-3">
+                <span
+                  className={`font-display text-xs font-bold uppercase tracking-[0.15em] ${
+                    a.is_owner ? "metal-text" : "text-mut"
+                  }`}
                 >
-                  Revoke admin
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </SectionCard>
+                  {a.is_owner ? "Owner" : "Admin"}
+                </span>
+                {!a.is_owner && a.device_id && (
+                  <button
+                    onClick={() => revoke.mutate(a.device_id!)}
+                    disabled={revoke.isPending}
+                    className={dangerBtn}
+                  >
+                    Revoke admin
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </SectionCard>
+      <RecoveryCodePanel />
+    </div>
   );
 }
 

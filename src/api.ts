@@ -1,7 +1,26 @@
 // Thin client for the ChezburgerPRO Supabase Edge Function backend.
-// Auth is IP-based and enforced server-side; no tokens live in the client.
+// Identity is a persistent per-browser device key (below), sent on every
+// request as the x-device-id header; the server enforces all access from it.
+// This survives IP changes (cellular networks rotate IPs constantly).
 
 const API_BASE = "https://qhrthvifjrceodrmkvbv.supabase.co/functions/v1/api";
+
+const DEVICE_KEY = "cbp_device";
+
+// A stable random id for this browser. Created once, then reused forever so a
+// member/owner stays recognized even when their IP changes.
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    return "no-storage";
+  }
+}
 
 export type AccessState = {
   ip: string;
@@ -16,6 +35,7 @@ export type AccessState = {
 };
 
 export type Admin = {
+  device_id: string | null;
   ip: string;
   name: string;
   is_owner: boolean;
@@ -33,6 +53,7 @@ export type Game = {
 export type AccessRow = {
   id: string;
   ip: string;
+  device_id: string | null;
   name: string;
   status: string;
   access_type: "unlimited" | "temporary" | null;
@@ -52,7 +73,9 @@ export type Suggestion = {
 };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
+  const headers = new Headers(init?.headers);
+  headers.set("x-device-id", getDeviceId());
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     throw new Error(body?.error ?? `Request failed (${res.status})`);
@@ -73,6 +96,7 @@ export const getAccessState = () => call<AccessState>("/access");
 export const submitAccessRequest = (name: string) =>
   post<{ ok: boolean; already: boolean }>("/request-access", { name });
 export const claimFounderKey = (name: string) => post<{ ok: boolean }>("/claim-founder", { name });
+export const recoverOwner = (code: string) => post<{ ok: boolean }>("/owner-recover", { code });
 
 // ---- member ----
 export const getCatalog = () =>
@@ -99,9 +123,12 @@ export const revokeAccess = (id: string) => post<{ ok: boolean }>("/admin/revoke
 
 // ---- admin roster (owner only) ----
 export const listAdmins = () => call<Admin[]>("/admin/admins");
-export const grantAdmin = (ip: string, name: string) =>
-  post<{ ok: boolean }>("/admin/grant-admin", { ip, name });
-export const revokeAdmin = (ip: string) => post<{ ok: boolean }>("/admin/revoke-admin", { ip });
+export const grantAdmin = (deviceId: string, name: string) =>
+  post<{ ok: boolean }>("/admin/grant-admin", { deviceId, name });
+export const revokeAdmin = (deviceId: string) =>
+  post<{ ok: boolean }>("/admin/revoke-admin", { deviceId });
+export const resetRecoveryCode = () =>
+  post<{ ok: boolean; code: string }>("/admin/reset-recovery-code", {});
 export const addCategory = (name: string) => post<{ ok: boolean }>("/admin/category", { name });
 export const deleteCategory = (id: string) =>
   post<{ ok: boolean }>("/admin/category-delete", { id });
@@ -123,7 +150,11 @@ export const deleteSuggestion = (id: string) =>
 export async function uploadIcon(file: File): Promise<string> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/admin/upload-icon`, { method: "POST", body: form });
+  const res = await fetch(`${API_BASE}/admin/upload-icon`, {
+    method: "POST",
+    headers: { "x-device-id": getDeviceId() },
+    body: form,
+  });
   const body = await res.json().catch(() => null);
   if (!res.ok || !body?.ok || !body?.url) {
     throw new Error(body?.error ?? "Icon upload failed");

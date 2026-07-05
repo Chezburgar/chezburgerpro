@@ -1,10 +1,79 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { claimFounderKey, submitAccessRequest, type AccessState } from "../api";
+import { claimFounderKey, recoverOwner, submitAccessRequest, type AccessState } from "../api";
 import { Monogram } from "./Monogram";
 
-function GateFrame({ children }: { children: React.ReactNode }) {
+function OwnerRecovery() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const recover = useMutation({
+    mutationFn: (c: string) => recoverOwner(c),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["access"] }),
+  });
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mx-auto mt-4 block text-xs text-mut underline decoration-a3/50 underline-offset-4 transition-colors hover:text-a1"
+      >
+        Owner? Recover access
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="mt-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (code.trim()) recover.mutate(code.trim());
+      }}
+    >
+      <label className="block">
+        <span className="font-display text-[10px] font-semibold uppercase tracking-[0.25em] text-mut">
+          Owner recovery code
+        </span>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          autoFocus
+          placeholder="CHEZ-XXXX-XXXX"
+          className="mt-2 w-full rounded-lg border border-line bg-bg px-4 py-2.5 text-center font-mono uppercase tracking-widest text-txt outline-none transition-colors placeholder:text-mut/50 focus:border-a2"
+        />
+      </label>
+      {recover.isError && (
+        <p className="mt-2 text-xs text-red-400">{(recover.error as Error).message}</p>
+      )}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="submit"
+          disabled={recover.isPending || !code.trim()}
+          className="metal-fill flex-1 rounded-lg px-4 py-2.5 font-display text-xs font-bold uppercase tracking-[0.2em] disabled:opacity-50"
+        >
+          {recover.isPending ? "Checking…" : "Recover"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-lg border border-line px-4 py-2.5 font-display text-xs font-semibold uppercase tracking-[0.15em] text-mut hover:text-txt"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function GateFrame({
+  children,
+  showRecovery = true,
+}: {
+  children: React.ReactNode;
+  showRecovery?: boolean;
+}) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-bg px-4 py-12">
       <div className="rise-in w-full max-w-md">
@@ -32,9 +101,10 @@ function GateFrame({ children }: { children: React.ReactNode }) {
         </p>
         <div className="gold-frame mt-6 rounded-2xl bg-panel p-8 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.9)]">
           {children}
+          {showRecovery && <OwnerRecovery />}
         </div>
         <p className="mt-6 text-center text-xs text-mut">
-          Access is tied to your network address. Chezburger reviews every request.
+          Access is saved to this device. Chezburger reviews every request.
         </p>
       </div>
     </div>
@@ -140,7 +210,7 @@ export function Gate({ access }: { access: AccessState }) {
   // One-time founder setup: nobody owns the vault yet.
   if (!access.adminExists) {
     return (
-      <GateFrame>
+      <GateFrame showRecovery={false}>
         <NameForm
           title="Claim the founder key"
           subtitle="The vault has no owner yet. The first person to claim this key becomes Chezburger — the admin panel binds to their network address, permanently. If this is your site, claim it now."
