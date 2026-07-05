@@ -76,7 +76,7 @@ export function SettingsPage() {
               Name
             </p>
             <p className="mt-1 text-txt">
-              {access.isAdmin ? (access.name ?? "Keymaster") : (access.name ?? "—")}
+              {access.isOwner ? (access.name ?? "Chezburger") : (access.name ?? "—")}
             </p>
           </div>
           <div>
@@ -86,7 +86,7 @@ export function SettingsPage() {
             <p className="mt-1">
               {access.isAdmin ? (
                 <span className="metal-text font-display font-bold uppercase tracking-wider">
-                  Admin
+                  {access.isOwner ? "Owner" : "Admin"}
                 </span>
               ) : access.accessType === "temporary" && access.expiresAt ? (
                 <Countdown

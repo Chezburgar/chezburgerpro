@@ -6,12 +6,20 @@ const API_BASE = "https://qhrthvifjrceodrmkvbv.supabase.co/functions/v1/api";
 export type AccessState = {
   ip: string;
   isAdmin: boolean;
+  isOwner: boolean;
   adminExists: boolean;
   status: "none" | "pending" | "approved" | "denied" | "revoked" | "expired";
   name: string | null;
   accessType: "unlimited" | "temporary" | null;
   expiresAt: number | null;
   now: number;
+};
+
+export type Admin = {
+  ip: string;
+  name: string;
+  is_owner: boolean;
+  created_at: number;
 };
 
 export type Category = { id: string; name: string; sort: number };
@@ -88,6 +96,12 @@ export const decideRequest = (data: {
   durationMinutes?: number;
 }) => post<{ ok: boolean }>("/admin/decide", data);
 export const revokeAccess = (id: string) => post<{ ok: boolean }>("/admin/revoke", { id });
+
+// ---- admin roster (owner only) ----
+export const listAdmins = () => call<Admin[]>("/admin/admins");
+export const grantAdmin = (ip: string, name: string) =>
+  post<{ ok: boolean }>("/admin/grant-admin", { ip, name });
+export const revokeAdmin = (ip: string) => post<{ ok: boolean }>("/admin/revoke-admin", { ip });
 export const addCategory = (name: string) => post<{ ok: boolean }>("/admin/category", { name });
 export const deleteCategory = (id: string) =>
   post<{ ok: boolean }>("/admin/category-delete", { id });

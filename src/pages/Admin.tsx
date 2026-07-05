@@ -10,9 +10,12 @@ import {
   deleteGame,
   deleteSuggestion,
   getCatalog,
+  grantAdmin,
   listAccess,
+  listAdmins,
   listSuggestions,
   revokeAccess,
+  revokeAdmin,
   updateGameCategory,
   updateSuggestion,
   uploadIcon,
@@ -28,7 +31,7 @@ const DURATIONS = [
   { label: "1 week", minutes: 10080 },
 ] as const;
 
-type AdminTab = "requests" | "members" | "games" | "categories" | "suggestions";
+type AdminTab = "requests" | "members" | "admins" | "games" | "categories" | "suggestions";
 
 const inputCls =
   "w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-sm text-txt outline-none transition-colors placeholder:text-mut/60 focus:border-a2";
@@ -148,6 +151,7 @@ function RequestsTab() {
 // ---- Members tab ---------------------------------------------------------------
 
 function MembersTab() {
+  const access = useAccess();
   const queryClient = useQueryClient();
   const accessList = useQuery({
     queryKey: ["admin", "access"],
@@ -157,6 +161,13 @@ function MembersTab() {
   const revoke = useMutation({
     mutationFn: revokeAccess,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "access"] }),
+  });
+  const promote = useMutation({
+    mutationFn: (vars: { ip: string; name: string }) => grantAdmin(vars.ip, vars.name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "access"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+    },
   });
 
   if (accessList.isPending) return <Empty text="Loading members…" />;
@@ -186,6 +197,16 @@ function MembersTab() {
                     <span className="metal-text font-display text-xs font-bold uppercase tracking-[0.15em]">
                       Unlimited
                     </span>
+                  )}
+                  {access.isOwner && m.access_type === "unlimited" && (
+                    <button
+                      onClick={() => promote.mutate({ ip: m.ip, name: m.name })}
+                      disabled={promote.isPending}
+                      className="rounded-md border border-a3 px-3 py-2 font-display text-xs font-bold uppercase tracking-[0.12em] text-a1 transition-colors hover:bg-a3/20 disabled:opacity-50"
+                      title="Give this member admin access"
+                    >
+                      Make admin
+                    </button>
                   )}
                   <button
                     onClick={() => revoke.mutate(m.id)}
@@ -224,6 +245,66 @@ function MembersTab() {
         )}
       </SectionCard>
     </div>
+  );
+}
+
+// ---- Admins tab (owner only) --------------------------------------------------------
+
+function AdminsTab() {
+  const access = useAccess();
+  const queryClient = useQueryClient();
+  const admins = useQuery({
+    queryKey: ["admin", "admins"],
+    queryFn: listAdmins,
+    refetchInterval: 30_000,
+  });
+  const revoke = useMutation({
+    mutationFn: revokeAdmin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "access"] });
+    },
+  });
+
+  if (admins.isPending) return <Empty text="Loading admins…" />;
+  if (admins.isError) return <Empty text={(admins.error as Error).message} />;
+
+  return (
+    <SectionCard title={`Admins — ${admins.data.length}`}>
+      <p className="mb-4 text-sm text-mut">
+        You (the owner) can promote any full-time member to admin from the Members tab. Admins can
+        do everything except manage this list. Only you can revoke an admin.
+      </p>
+      <ul className="divide-y divide-line">
+        {admins.data.map((a) => (
+          <li key={a.ip} className="flex flex-wrap items-center gap-3 py-4">
+            <div className="min-w-40">
+              <p className="font-display text-sm font-bold text-txt">{a.name}</p>
+              <p className="mt-0.5 font-mono text-xs text-mut">{a.ip}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <span
+                className={`font-display text-xs font-bold uppercase tracking-[0.15em] ${
+                  a.is_owner ? "metal-text" : "text-mut"
+                }`}
+              >
+                {a.is_owner ? "Owner" : "Admin"}
+                {a.ip === access.ip && !a.is_owner ? " · you" : ""}
+              </span>
+              {!a.is_owner && (
+                <button
+                  onClick={() => revoke.mutate(a.ip)}
+                  disabled={revoke.isPending}
+                  className={dangerBtn}
+                >
+                  Revoke admin
+                </button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
   );
 }
 
@@ -577,9 +658,10 @@ function SuggestionsTab() {
 
 // ---- Page ----------------------------------------------------------------------------
 
-const TABS: { id: AdminTab; label: string }[] = [
+const TABS: { id: AdminTab; label: string; ownerOnly?: boolean }[] = [
   { id: "requests", label: "Requests" },
   { id: "members", label: "Members" },
+  { id: "admins", label: "Admins", ownerOnly: true },
   { id: "games", label: "Games" },
   { id: "categories", label: "Categories" },
   { id: "suggestions", label: "Suggestions" },
@@ -592,19 +674,22 @@ export function AdminPage() {
   if (!access.isAdmin) {
     return (
       <div className="mx-auto max-w-md px-4 py-24 text-center">
-        <h1 className="font-display text-xl font-bold text-txt">Keymaster only</h1>
+        <h1 className="font-display text-xl font-bold text-txt">Admins only</h1>
         <p className="mt-2 text-sm text-mut">
-          The admin panel is bound to the keymaster's network address. Yours doesn't match.
+          The admin panel is bound to trusted network addresses. Yours isn't one of them.
         </p>
       </div>
     );
   }
 
+  const visibleTabs = TABS.filter((t) => !t.ownerOnly || access.isOwner);
+  const activeTab = visibleTabs.some((t) => t.id === tab) ? tab : "requests";
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <div className="rise-in">
         <p className="font-display text-[11px] font-semibold uppercase tracking-[0.35em] text-mut">
-          The keymaster's desk
+          Chezburger's desk
         </p>
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-txt">
           <span className="metal-text">Admin</span> panel
@@ -612,12 +697,12 @@ export function AdminPage() {
       </div>
 
       <div className="no-scrollbar mt-8 flex gap-1 overflow-x-auto rounded-xl border border-line bg-panel p-1.5">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`whitespace-nowrap rounded-lg px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
-              tab === t.id ? "metal-fill" : "text-mut hover:text-txt"
+              activeTab === t.id ? "metal-fill" : "text-mut hover:text-txt"
             }`}
           >
             {t.label}
@@ -626,11 +711,12 @@ export function AdminPage() {
       </div>
 
       <div className="mt-6">
-        {tab === "requests" && <RequestsTab />}
-        {tab === "members" && <MembersTab />}
-        {tab === "games" && <GamesTab />}
-        {tab === "categories" && <CategoriesTab />}
-        {tab === "suggestions" && <SuggestionsTab />}
+        {activeTab === "requests" && <RequestsTab />}
+        {activeTab === "members" && <MembersTab />}
+        {activeTab === "admins" && <AdminsTab />}
+        {activeTab === "games" && <GamesTab />}
+        {activeTab === "categories" && <CategoriesTab />}
+        {activeTab === "suggestions" && <SuggestionsTab />}
       </div>
     </div>
   );

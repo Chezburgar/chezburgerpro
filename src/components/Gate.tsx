@@ -34,7 +34,7 @@ function GateFrame({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <p className="mt-6 text-center text-xs text-mut">
-          Access is tied to your network address. A keymaster reviews every request.
+          Access is tied to your network address. Chezburger reviews every request.
         </p>
       </div>
     </div>
@@ -143,7 +143,7 @@ export function Gate({ access }: { access: AccessState }) {
       <GateFrame>
         <NameForm
           title="Claim the founder key"
-          subtitle="The vault has no keymaster yet. The first person to claim this key binds the admin panel to their network address — permanently. If this is your site, claim it now."
+          subtitle="The vault has no owner yet. The first person to claim this key becomes Chezburger — the admin panel binds to their network address, permanently. If this is your site, claim it now."
           cta="Claim the founder key"
           busy={claim.isPending}
           error={claim.isError ? (claim.error as Error).message : null}
@@ -159,7 +159,7 @@ export function Gate({ access }: { access: AccessState }) {
         <StatusPanel
           tone="wait"
           title="Request received"
-          body={`Hang tight${access.name ? `, ${access.name}` : ""} — the keymaster has your request. This screen refreshes on its own the moment you're approved.`}
+          body={`Hang tight${access.name ? `, ${access.name}` : ""} — Chezburger has your request. This screen refreshes on its own the moment you're approved.`}
         />
       </GateFrame>
     );
@@ -173,7 +173,7 @@ export function Gate({ access }: { access: AccessState }) {
           title={access.status === "denied" ? "Request declined" : "Access revoked"}
           body={
             access.status === "denied"
-              ? "The keymaster declined your request. You can knock again."
+              ? "Chezburger declined your request. You can knock again."
               : "Your key was withdrawn. You can request a new one."
           }
         >
@@ -211,7 +211,7 @@ export function Gate({ access }: { access: AccessState }) {
     <GateFrame>
       <NameForm
         title="The vault is locked"
-        subtitle="ChezburgerPRO is members-only. Tell the keymaster who you are and your request lands on the admin desk for approval."
+        subtitle="ChezburgerPRO is members-only. Tell Chezburger who you are and your request lands on the admin desk for approval."
         cta="Request access"
         busy={request.isPending}
         error={request.isError ? (request.error as Error).message : null}

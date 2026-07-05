@@ -148,6 +148,70 @@
   animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Load-up intro: ring spins in, seal pops with a slight overshoot, wordmark
+   spreads into place, then the whole overlay fades away (~2s total). */
+.intro-overlay {
+  animation: intro-fade-out 2s ease forwards;
+}
+@keyframes intro-fade-out {
+  0%,
+  72% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+.intro-seal {
+  animation: intro-seal-in 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes intro-seal-in {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.intro-ring {
+  transform-origin: 50% 50%;
+  animation:
+    intro-ring-in 1.2s ease both,
+    seal-spin 24s linear 1.2s infinite;
+}
+@keyframes intro-ring-in {
+  0% {
+    transform: rotate(-120deg);
+    opacity: 0;
+  }
+  100% {
+    transform: rotate(0);
+    opacity: 1;
+  }
+}
+.intro-word {
+  animation: intro-word-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both;
+}
+@keyframes intro-word-in {
+  0% {
+    letter-spacing: 0.7em;
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    letter-spacing: 0.25em;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .seal-ring,
   .rise-in {

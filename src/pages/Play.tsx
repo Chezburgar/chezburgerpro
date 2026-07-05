@@ -86,7 +86,7 @@ export function PlayPage({ gameId }: { gameId: string }) {
         />
       </div>
       <p className="mt-3 text-xs text-mut">
-        Game not loading? Some sites refuse to be embedded — tell the keymaster.
+        Game not loading? Some sites refuse to be embedded — tell Chezburger.
       </p>
     </div>
   );

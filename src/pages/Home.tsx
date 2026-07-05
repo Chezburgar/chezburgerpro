@@ -91,7 +91,7 @@ export function HomePage() {
           <p className="metal-text font-display text-5xl font-bold">∅</p>
           <h2 className="mt-4 font-display text-lg font-bold text-txt">The shelves are empty</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-mut">
-            No games yet. Suggest one on the Request tab and the keymaster will stock the vault.
+            No games yet. Suggest one on the Request tab and Chezburger will stock the vault.
           </p>
           <a
             href="#/request"

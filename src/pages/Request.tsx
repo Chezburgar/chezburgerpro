@@ -37,7 +37,7 @@ export function RequestPage() {
           Request a <span className="metal-text">game</span>
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-mut">
-          Drop a suggestion through the slot. It lands directly on the keymaster's desk in the
+          Drop a suggestion through the slot. It lands directly on Chezburger's desk in the
           admin panel.
         </p>
       </div>
@@ -46,7 +46,7 @@ export function RequestPage() {
         <div className="gold-frame mt-8 rounded-xl bg-panel p-5">
           <p className="font-display text-sm font-bold text-a1">Suggestion delivered.</p>
           <p className="mt-1 text-sm text-mut">
-            The keymaster will review it. Feel free to send another.
+            Chezburger will review it. Feel free to send another.
           </p>
         </div>
       )}
@@ -94,7 +94,7 @@ export function RequestPage() {
             onChange={(e) => setNote(e.target.value)}
             maxLength={500}
             rows={3}
-            placeholder="Anything the keymaster should know"
+            placeholder="Anything Chezburger should know"
             className="mt-2 w-full resize-none rounded-lg border border-line bg-bg px-4 py-3 text-txt outline-none transition-colors placeholder:text-mut/60 focus:border-a2"
           />
         </label>

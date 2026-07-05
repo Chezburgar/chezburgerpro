@@ -6,6 +6,7 @@ import { useHashRoute } from "./router";
 import { Gate } from "./components/Gate";
 import { Monogram } from "./components/Monogram";
 import { Countdown } from "./components/Countdown";
+import { IntroOverlay } from "./components/IntroOverlay";
 import { HomePage } from "./pages/Home";
 import { PlayPage } from "./pages/Play";
 import { SchoolPage } from "./pages/School";
@@ -25,7 +26,9 @@ function AccessChip({ access }: { access: AccessState }) {
   if (access.isAdmin) {
     return (
       <span className="gold-frame flex items-center gap-2 rounded-full bg-panel px-3 py-1.5 text-xs">
-        <span className="metal-text font-display font-bold uppercase tracking-[0.2em]">Admin</span>
+        <span className="metal-text font-display font-bold uppercase tracking-[0.2em]">
+          {access.isOwner ? "Owner" : "Admin"}
+        </span>
       </span>
     );
   }
@@ -172,9 +175,11 @@ export function App() {
     refetchOnWindowFocus: true,
   });
 
-  if (accessQuery.isPending) return <Splash />;
-  if (accessQuery.isError) {
-    return (
+  let body: React.ReactNode;
+  if (accessQuery.isPending) {
+    body = <Splash />;
+  } else if (accessQuery.isError) {
+    body = (
       <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
         <div className="max-w-sm text-center">
           <h1 className="font-display text-lg font-bold text-txt">Can't reach the vault</h1>
@@ -188,20 +193,26 @@ export function App() {
         </div>
       </div>
     );
+  } else {
+    const access = accessQuery.data;
+    const allowed = access.isAdmin || access.status === "approved";
+    body = (
+      <AccessContext.Provider value={access}>
+        {allowed ? (
+          <Shell access={access} path={path}>
+            <Routes path={path} />
+          </Shell>
+        ) : (
+          <Gate access={access} />
+        )}
+      </AccessContext.Provider>
+    );
   }
 
-  const access = accessQuery.data;
-  const allowed = access.isAdmin || access.status === "approved";
-
   return (
-    <AccessContext.Provider value={access}>
-      {allowed ? (
-        <Shell access={access} path={path}>
-          <Routes path={path} />
-        </Shell>
-      ) : (
-        <Gate access={access} />
-      )}
-    </AccessContext.Provider>
+    <>
+      <IntroOverlay />
+      {body}
+    </>
   );
 }
