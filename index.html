@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChezburgerPRO</title>
+    <meta name="description" content="The private game vault. Members only." />
+    <link rel="icon" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Outfit:wght@400;500;600;700&display=swap"
+    />
+    <script>
+      // Apply the saved theme before first paint (no flash). The full theme map
+      // lives in the app; we cache the active theme's resolved vars here.
+      (function () {
+        try {
+          var raw = localStorage.getItem("cbp-theme-vars");
+          if (!raw) return;
+          var t = JSON.parse(raw);
+          var r = document.documentElement;
+          for (var k in t.vars) r.style.setProperty(k, t.vars[k]);
+          r.style.colorScheme = t.light ? "light" : "dark";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

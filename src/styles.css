@@ -1,0 +1,162 @@
+@import "tailwindcss";
+
+/* ---- ChezburgerPRO token layer -------------------------------------------
+   Runtime themes (50 of them, src/themes.ts) set these vars on <html>. The
+   values below are the default "Obsidian & Gold" theme. */
+:root {
+  --bg: #0a0a0c;
+  --panel: #121216;
+  --panel2: #1a1a20;
+  --line: #26262e;
+  --text: #f5f2ea;
+  --mut: #8f8c84;
+  --a1: #f6d97a;
+  --a2: #d4a94a;
+  --a3: #96702a;
+  --ink: #1a1305;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-line: var(--line);
+  --color-txt: var(--text);
+  --color-mut: var(--mut);
+  --color-a1: var(--a1);
+  --color-a2: var(--a2);
+  --color-a3: var(--a3);
+  --color-ink: var(--ink);
+
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Outfit", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--bg);
+    color: var(--text);
+    color-scheme: dark;
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  * {
+    border-color: var(--line);
+  }
+
+  ::selection {
+    background: var(--a2);
+    color: var(--ink);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--panel2);
+    border-radius: 6px;
+    border: 2px solid var(--bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--a3);
+  }
+}
+
+/* ---- Signature pieces ---------------------------------------------------- */
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Metallic gradient text — the wordmark and section labels. */
+.metal-text {
+  background: linear-gradient(160deg, var(--a1) 10%, var(--a2) 45%, var(--a3) 80%, var(--a1) 110%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Metallic fill for seals / primary CTAs. */
+.metal-fill {
+  background: linear-gradient(160deg, var(--a1), var(--a2) 55%, var(--a3));
+  color: var(--ink);
+}
+
+/* Hairline gold frame. */
+.gold-frame {
+  border: 1px solid color-mix(in srgb, var(--a2) 45%, var(--line));
+}
+
+/* Sheen sweep on hover — a light band crosses the surface. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: -150% auto -150% -80%;
+  width: 45%;
+  transform: rotate(18deg) translateX(-140%);
+  background: linear-gradient(
+    100deg,
+    transparent,
+    color-mix(in srgb, var(--a1) 32%, transparent),
+    transparent
+  );
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.sheen:hover::after {
+  transform: rotate(18deg) translateX(420%);
+}
+
+/* Slow rotating ring around the vault seal on the gate screen. */
+@keyframes seal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.seal-ring {
+  animation: seal-spin 24s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+/* Soft rise on mount for cards/panels. */
+@keyframes rise-in {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.rise-in {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-ring,
+  .rise-in {
+    animation: none;
+  }
+  .sheen::after {
+    display: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}
