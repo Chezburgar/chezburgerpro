@@ -22,6 +22,7 @@ import {
   uploadIcon,
 } from "../api";
 import { Countdown } from "../components/Countdown";
+import { playSound } from "../sound";
 
 const DURATIONS = [
   { label: "30 minutes", minutes: 30 },
@@ -71,7 +72,10 @@ function RequestsTab() {
 
   const decide = useMutation({
     mutationFn: decideRequest,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "access"] }),
+    onSuccess: (_res, vars) => {
+      if (vars.action === "approve") playSound("success");
+      queryClient.invalidateQueries({ queryKey: ["admin", "access"] });
+    },
   });
 
   if (accessList.isPending) return <Empty text="Loading requests…" />;
@@ -166,6 +170,7 @@ function MembersTab() {
   const promote = useMutation({
     mutationFn: (vars: { deviceId: string; name: string }) => grantAdmin(vars.deviceId, vars.name),
     onSuccess: () => {
+      playSound("success");
       queryClient.invalidateQueries({ queryKey: ["admin", "access"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
     },
@@ -377,6 +382,7 @@ function GamesTab() {
       });
     },
     onSuccess: () => {
+      playSound("success");
       setName("");
       setUrl("");
       setCategoryId("");
@@ -543,6 +549,7 @@ function CategoriesTab() {
   const create = useMutation({
     mutationFn: () => addCategory(name.trim()),
     onSuccess: () => {
+      playSound("success");
       setName("");
       invalidate();
     },
@@ -742,6 +749,7 @@ export function AdminPage() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
+            data-sound="toggle"
             className={`whitespace-nowrap rounded-lg px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.15em] transition-colors ${
               activeTab === t.id ? "metal-fill" : "text-mut hover:text-txt"
             }`}

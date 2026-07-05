@@ -3,7 +3,10 @@ import { useState } from "react";
 import { applyTheme, savedThemeId, THEMES, type Theme } from "../themes";
 import { useAccess } from "../access-context";
 import { Countdown } from "../components/Countdown";
+import { isSoundOn, playSound, setSoundOn } from "../sound";
 
+// A miniature preview of the real ChezburgerPRO UI, painted in the theme's own
+// colors — a gold seal + title, a metallic button, and body lines.
 function ThemeSwatch({
   theme,
   active,
@@ -13,35 +16,82 @@ function ThemeSwatch({
   active: boolean;
   onPick: () => void;
 }) {
-  const [bg, panel, , , text, , a1, a2, a3] = theme.v;
+  const [bg, panel, panel2, line, text, mut, a1, a2, a3, ink] = theme.v;
+  const gold = `linear-gradient(150deg, ${a1}, ${a2} 55%, ${a3})`;
   return (
     <button
       onClick={onPick}
-      className={`group rounded-xl border p-3 text-left transition-all hover:-translate-y-0.5 ${
+      data-sound="toggle"
+      className={`group rounded-xl border p-2 text-left transition-all hover:-translate-y-0.5 ${
         active ? "border-a2 shadow-[0_0_0_1px_var(--a2)]" : "border-line hover:border-a3"
       }`}
       style={{ background: panel }}
     >
       <div
-        className="flex h-14 items-center justify-center gap-1.5 rounded-lg border"
-        style={{ background: bg, borderColor: theme.v[3] }}
+        className="overflow-hidden rounded-lg border p-2.5"
+        style={{ background: bg, borderColor: line }}
       >
-        <span
-          className="h-6 w-6 rounded-full"
-          style={{ background: `linear-gradient(160deg, ${a1}, ${a2}, ${a3})` }}
-        />
-        <span className="h-4 w-4 rounded-full opacity-80" style={{ background: a2 }} />
-        <span className="h-2.5 w-2.5 rounded-full opacity-60" style={{ background: text }} />
+        {/* masthead: seal + title bar */}
+        <div className="flex items-center gap-1.5">
+          <span
+            className="h-4 w-4 shrink-0 rounded-full"
+            style={{ background: gold, boxShadow: `0 0 0 1px ${line}` }}
+          />
+          <span className="h-1.5 w-11 rounded-full" style={{ background: text, opacity: 0.9 }} />
+          <span className="ml-auto h-1.5 w-4 rounded-full" style={{ background: a2 }} />
+        </div>
+        {/* a "game card" tile with a metallic button */}
+        <div
+          className="mt-2 rounded-md p-1.5"
+          style={{ background: panel2, boxShadow: `inset 0 0 0 1px ${line}` }}
+        >
+          <div className="flex items-center justify-center rounded" style={{ height: 18, background: bg }}>
+            <span className="text-[9px] font-bold" style={{ color: a2 }}>
+              ▶
+            </span>
+          </div>
+          <div className="mt-1.5 rounded-sm" style={{ height: 6, background: gold }}>
+            <span className="block text-center text-[5px] font-bold leading-[6px]" style={{ color: ink }}>
+              PLAY
+            </span>
+          </div>
+        </div>
+        {/* body lines */}
+        <div className="mt-2 space-y-1">
+          <span className="block h-1 w-full rounded-full" style={{ background: mut, opacity: 0.55 }} />
+          <span className="block h-1 w-2/3 rounded-full" style={{ background: mut, opacity: 0.4 }} />
+        </div>
       </div>
-      <p className="mt-2 truncate text-xs font-semibold" style={{ color: text }}>
-        {theme.name}
-      </p>
-      <p
-        className="font-display text-[9px] font-semibold uppercase tracking-[0.2em]"
-        style={{ color: active ? a2 : theme.v[5] }}
-      >
-        {active ? "Active" : theme.light ? "Light" : "Dark"}
-      </p>
+      <div className="mt-2 flex items-center justify-between px-0.5">
+        <p className="truncate text-xs font-semibold" style={{ color: text }}>
+          {theme.name}
+        </p>
+        <span
+          className="ml-2 shrink-0 font-display text-[9px] font-semibold uppercase tracking-[0.15em]"
+          style={{ color: active ? a2 : mut }}
+        >
+          {active ? "On" : theme.light ? "Light" : "Dark"}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      onClick={() => onChange(!on)}
+      className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
+        on ? "border-a2" : "border-line bg-panel2"
+      }`}
+      style={on ? { background: "linear-gradient(150deg, var(--a1), var(--a2) 55%, var(--a3))" } : undefined}
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${on ? "left-[22px]" : "left-0.5"}`}
+        style={{ background: on ? "var(--ink)" : "var(--mut)" }}
+      />
     </button>
   );
 }
@@ -49,10 +99,17 @@ function ThemeSwatch({
 export function SettingsPage() {
   const access = useAccess();
   const [themeId, setThemeId] = useState(savedThemeId);
+  const [sound, setSound] = useState(isSoundOn);
 
   const pickTheme = (id: string) => {
     setThemeId(id);
     applyTheme(id);
+  };
+
+  const toggleSound = (on: boolean) => {
+    setSound(on);
+    setSoundOn(on);
+    if (on) playSound("toggle");
   };
 
   return (
@@ -105,6 +162,21 @@ export function SettingsPage() {
             </p>
             <p className="mt-1 font-mono text-xs text-mut">{access.ip}</p>
           </div>
+        </div>
+      </section>
+
+      <section className="gold-frame mt-6 rounded-2xl bg-panel p-6 sm:p-8">
+        <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-txt">
+          Preferences
+        </h2>
+        <div className="mt-4 flex items-center gap-4">
+          <div className="flex-1">
+            <p className="font-display text-sm font-semibold text-txt">Sound effects</p>
+            <p className="mt-0.5 text-xs text-mut">
+              Subtle clicks and chimes as you move around the vault.
+            </p>
+          </div>
+          <Toggle on={sound} onChange={toggleSound} />
         </div>
       </section>
 

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { getCatalog, type Game } from "../api";
 import { useAccess } from "../access-context";
@@ -7,6 +8,7 @@ function GameCard({ game }: { game: Game }) {
   return (
     <a
       href={`#/play/${game.id}`}
+      data-sound="open"
       className="sheen gold-frame group block rounded-xl bg-panel p-4 transition-transform duration-300 hover:-translate-y-1"
     >
       <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-line bg-panel2">
@@ -31,8 +33,39 @@ function GameCard({ game }: { game: Game }) {
   );
 }
 
+function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative mt-6 max-w-md">
+      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-mut">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+          <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search games…"
+        className="w-full rounded-lg border border-line bg-panel py-2.5 pl-10 pr-9 text-sm text-txt outline-none transition-colors placeholder:text-mut/60 focus:border-a2"
+      />
+      {value && (
+        <button
+          onClick={() => onChange("")}
+          aria-label="Clear search"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-mut transition-colors hover:text-txt"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function HomePage() {
   const access = useAccess();
+  const [query, setQuery] = useState("");
   const catalog = useQuery({ queryKey: ["catalog"], queryFn: getCatalog });
 
   if (catalog.isPending) {
@@ -59,8 +92,10 @@ export function HomePage() {
   }
 
   const { categories, games } = catalog.data;
+  const q = query.trim().toLowerCase();
+  const filtered = q ? games.filter((g) => g.name.toLowerCase().includes(q)) : games;
   const byCategory = new Map<string | null, Game[]>();
-  for (const game of games) {
+  for (const game of filtered) {
     const key = game.category_id;
     if (!byCategory.has(key)) byCategory.set(key, []);
     byCategory.get(key)!.push(game);
@@ -84,9 +119,10 @@ export function HomePage() {
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-txt sm:text-4xl">
           The <span className="metal-text">collection</span>
         </h1>
+        {games.length > 0 && <SearchBar value={query} onChange={setQuery} />}
       </div>
 
-      {shelves.length === 0 ? (
+      {games.length === 0 ? (
         <div className="gold-frame mt-12 rounded-2xl bg-panel px-8 py-16 text-center">
           <p className="metal-text font-display text-5xl font-bold">∅</p>
           <h2 className="mt-4 font-display text-lg font-bold text-txt">The shelves are empty</h2>
@@ -99,6 +135,20 @@ export function HomePage() {
           >
             Suggest a game
           </a>
+        </div>
+      ) : shelves.length === 0 ? (
+        <div className="gold-frame mt-10 rounded-2xl bg-panel px-8 py-14 text-center">
+          <p className="metal-text font-display text-4xl font-bold">?</p>
+          <h2 className="mt-4 font-display text-lg font-bold text-txt">No games match</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-mut">
+            Nothing in the vault matches “{query.trim()}”. Try a different search.
+          </p>
+          <button
+            onClick={() => setQuery("")}
+            className="mt-6 rounded-lg border border-a3 px-6 py-2.5 font-display text-sm font-semibold uppercase tracking-[0.2em] text-a1 transition-colors hover:bg-a3/20"
+          >
+            Clear search
+          </button>
         </div>
       ) : (
         shelves.map((shelf) => (

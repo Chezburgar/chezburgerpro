@@ -1,7 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useEffect } from "react";
+
 import { getAccessState, type AccessState } from "./api";
 import { AccessContext } from "./access-context";
+import { installClickSounds } from "./sound";
 import { useHashRoute } from "./router";
 import { Gate } from "./components/Gate";
 import { Monogram } from "./components/Monogram";
@@ -163,6 +166,9 @@ function Routes({ path }: { path: string }) {
 
 export function App() {
   const path = useHashRoute();
+
+  useEffect(() => installClickSounds(), []);
+
   const accessQuery = useQuery({
     queryKey: ["access"],
     queryFn: getAccessState,

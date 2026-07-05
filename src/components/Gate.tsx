@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { claimFounderKey, recoverOwner, submitAccessRequest, type AccessState } from "../api";
+import { playSound } from "../sound";
 import { Monogram } from "./Monogram";
 
 function OwnerRecovery() {
@@ -10,7 +11,11 @@ function OwnerRecovery() {
   const [code, setCode] = useState("");
   const recover = useMutation({
     mutationFn: (c: string) => recoverOwner(c),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["access"] }),
+    onSuccess: () => {
+      playSound("open");
+      queryClient.invalidateQueries({ queryKey: ["access"] });
+    },
+    onError: () => playSound("error"),
   });
 
   if (!open) {
@@ -200,11 +205,19 @@ export function Gate({ access }: { access: AccessState }) {
 
   const request = useMutation({
     mutationFn: (name: string) => submitAccessRequest(name),
-    onSuccess: refresh,
+    onSuccess: () => {
+      playSound("success");
+      refresh();
+    },
+    onError: () => playSound("error"),
   });
   const claim = useMutation({
     mutationFn: (name: string) => claimFounderKey(name),
-    onSuccess: refresh,
+    onSuccess: () => {
+      playSound("open");
+      refresh();
+    },
+    onError: () => playSound("error"),
   });
 
   // One-time founder setup: nobody owns the vault yet.

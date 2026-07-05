@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { submitSuggestion } from "../api";
 import { useAccess } from "../access-context";
+import { playSound } from "../sound";
 
 export function RequestPage() {
   const access = useAccess();
@@ -20,11 +21,13 @@ export function RequestPage() {
         requesterName: access.name ?? undefined,
       }),
     onSuccess: () => {
+      playSound("success");
       setSent(true);
       setGameName("");
       setGameUrl("");
       setNote("");
     },
+    onError: () => playSound("error"),
   });
 
   return (
