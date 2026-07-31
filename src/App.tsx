@@ -16,9 +16,13 @@ import { SchoolPage } from "./pages/School";
 import { RequestPage } from "./pages/Request";
 import { SettingsPage } from "./pages/Settings";
 import { AdminPage } from "./pages/Admin";
+import { VideosPage } from "./pages/Videos";
+import { WatchPage } from "./pages/Watch";
+import { ShortsPage } from "./pages/Shorts";
 
 const NAV_TABS = [
   { to: "/", label: "Home" },
+  { to: "/videos", label: "Videos" },
   { to: "/school", label: "School" },
   { to: "/request", label: "Request" },
   { to: "/settings", label: "Settings" },
@@ -66,7 +70,9 @@ function Shell({
   children: React.ReactNode;
 }) {
   const tabClass = (to: string) => {
-    const active = to === "/" ? path === "/" : path.startsWith(to);
+    let active = to === "/" ? path === "/" : path.startsWith(to);
+    // Watch + Shorts live under the Videos tab.
+    if (to === "/videos" && (path.startsWith("/watch/") || path === "/shorts")) active = true;
     return `rounded-md px-3 py-2 font-display text-xs font-semibold uppercase tracking-[0.18em] transition-colors ${
       active ? "bg-panel2 text-a1" : "text-mut hover:text-txt"
     }`;
@@ -156,10 +162,13 @@ function NotFound() {
 
 function Routes({ path }: { path: string }) {
   if (path === "/") return <HomePage />;
+  if (path === "/videos") return <VideosPage />;
+  if (path === "/shorts") return <ShortsPage />;
   if (path === "/school") return <SchoolPage />;
   if (path === "/request") return <RequestPage />;
   if (path === "/settings") return <SettingsPage />;
   if (path === "/admin") return <AdminPage />;
+  if (path.startsWith("/watch/")) return <WatchPage videoId={path.slice("/watch/".length)} />;
   if (path.startsWith("/play/")) return <PlayPage gameId={path.slice("/play/".length)} />;
   return <NotFound />;
 }
@@ -201,7 +210,13 @@ export function App() {
     );
   } else {
     const access = accessQuery.data;
-    const allowed = access.isAdmin || access.status === "approved";
+    // Dev-only preview escape hatch (compiled out of production builds, where
+    // import.meta.env.DEV is false). Lets local testing reach gated pages.
+    const devOpen =
+      import.meta.env.DEV &&
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("cbp_dev_open") === "1";
+    const allowed = access.isAdmin || access.status === "approved" || devOpen;
     body = (
       <AccessContext.Provider value={access}>
         {allowed ? (
