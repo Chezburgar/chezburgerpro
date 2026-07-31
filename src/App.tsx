@@ -19,10 +19,12 @@ import { AdminPage } from "./pages/Admin";
 import { VideosPage } from "./pages/Videos";
 import { WatchPage } from "./pages/Watch";
 import { ShortsPage } from "./pages/Shorts";
+import { ProxyPage } from "./pages/Proxy";
 
 const NAV_TABS = [
   { to: "/", label: "Home" },
   { to: "/videos", label: "Videos" },
+  { to: "/proxy", label: "Proxy" },
   { to: "/school", label: "School" },
   { to: "/request", label: "Request" },
   { to: "/settings", label: "Settings" },
@@ -164,6 +166,7 @@ function Routes({ path }: { path: string }) {
   if (path === "/") return <HomePage />;
   if (path === "/videos") return <VideosPage />;
   if (path === "/shorts") return <ShortsPage />;
+  if (path === "/proxy") return <ProxyPage />;
   if (path === "/school") return <SchoolPage />;
   if (path === "/request") return <RequestPage />;
   if (path === "/settings") return <SettingsPage />;

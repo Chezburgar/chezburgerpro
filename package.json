@@ -13,7 +13,10 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@mercuryworkshop/bare-mux": "^2.1.9",
+    "@mercuryworkshop/epoxy-transport": "^3.0.1",
     "@tailwindcss/vite": "^4.2.0",
+    "@titaniumnetwork-dev/ultraviolet": "^3.2.10",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
