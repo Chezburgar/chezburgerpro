@@ -24,10 +24,58 @@ export function getWispUrl(): string {
 
 export function setWispUrl(url: string): void {
   try {
-    localStorage.setItem(WISP_KEY, url);
+    localStorage.setItem(WISP_KEY, normalizeWisp(url));
   } catch {
     // storage unavailable — applies for this visit only
   }
+}
+
+/** Accept what people actually paste (https://x.onrender.com) → wss://x.onrender.com/ */
+export function normalizeWisp(raw: string): string {
+  let s = raw.trim();
+  if (!s) return DEFAULT_WISP;
+  s = s.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
+  if (!/^wss?:\/\//i.test(s)) s = `wss://${s}`;
+  if (!s.endsWith("/")) s += "/";
+  return s;
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
+
+// Render's free tier sleeps after inactivity and takes ~30s to wake. Poke it
+// over plain HTTP first so the WebSocket doesn't just time out on a cold box.
+async function wakeRelay(wisp: string): Promise<void> {
+  try {
+    const http = wisp.replace(/^ws/i, "http");
+    await withTimeout(
+      fetch(http, { mode: "no-cors", cache: "no-store" }).then(() => undefined),
+      45_000,
+      "wake timeout",
+    );
+  } catch {
+    // Best effort only — the real check is the WebSocket below.
+  }
+}
+
+function waitForActivation(reg: ServiceWorkerRegistration): Promise<void> {
+  if (reg.active) return Promise.resolve();
+  const worker = reg.installing ?? reg.waiting;
+  if (!worker) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const onChange = () => {
+      if (worker.state === "activated" || worker.state === "redundant") {
+        worker.removeEventListener("statechange", onChange);
+        resolve();
+      }
+    };
+    worker.addEventListener("statechange", onChange);
+    onChange();
+  });
 }
 
 // UV's xor codec, matching Ultraviolet.codec.xor.encode exactly so the service
@@ -76,7 +124,7 @@ async function getConnection(): Promise<BareMuxConnectionLike> {
  * Register the UV service worker and point bare-mux at the chosen Wisp server.
  * Safe to call repeatedly; the transport is only re-set when the server changes.
  */
-export async function startProxy(wisp: string): Promise<void> {
+export async function startProxy(rawWisp: string): Promise<void> {
   if (!("serviceWorker" in navigator)) {
     throw new Error("This browser doesn't support service workers, so the proxy can't run.");
   }
@@ -84,12 +132,26 @@ export async function startProxy(wisp: string): Promise<void> {
     throw new Error("The proxy needs a secure (https) connection.");
   }
 
-  await navigator.serviceWorker.register(`${BASE}uv/sw.js`, { scope: UV_PREFIX });
-  await navigator.serviceWorker.ready;
+  const wisp = normalizeWisp(rawWisp);
+
+  // NOTE: do NOT use navigator.serviceWorker.ready here — it only resolves for a
+  // worker controlling THIS page, and ours is scoped to /uv/service/, so it
+  // would hang forever ("Opening tunnel…" that never finishes).
+  const reg = await withTimeout(
+    navigator.serviceWorker.register(`${BASE}uv/sw.js`, { scope: UV_PREFIX }),
+    20_000,
+    "Couldn't install the proxy service worker.",
+  );
+  await withTimeout(waitForActivation(reg), 20_000, "The proxy service worker didn't start.");
 
   if (activeWisp !== wisp) {
+    await wakeRelay(wisp);
     const conn = await getConnection();
-    await conn.setTransport(`${BASE}uv/epoxy/index.mjs`, [{ wisp }]);
+    await withTimeout(
+      conn.setTransport(`${BASE}uv/epoxy/index.mjs`, [{ wisp }]),
+      30_000,
+      "The relay didn't respond. It may be asleep, down, or blocked on this network.",
+    );
     activeWisp = wisp;
   }
 }

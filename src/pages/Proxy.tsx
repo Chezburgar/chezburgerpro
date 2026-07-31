@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
-  DEFAULT_WISP,
   WISP_SERVERS,
   getWispUrl,
   normalizeInput,
+  normalizeWisp,
   proxiedUrl,
   setWispUrl,
   startProxy,
@@ -27,6 +27,7 @@ export function ProxyPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [wisp, setWisp] = useState(getWispUrl);
+  const [custom, setCustom] = useState("");
   const [showConn, setShowConn] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const frameWrap = useRef<HTMLDivElement>(null);
@@ -85,8 +86,9 @@ export function ProxyPage() {
   };
 
   const pickServer = (url: string) => {
-    setWispUrl(url);
-    setWisp(url);
+    const normalized = normalizeWisp(url);
+    setWispUrl(normalized);
+    setWisp(normalized); // re-runs the connect effect
   };
 
   return (
@@ -204,21 +206,36 @@ export function ProxyPage() {
                 </button>
               ))}
             </div>
-            <label className="mt-3 block">
+            <form
+              className="mt-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const v = custom.trim();
+                if (v) pickServer(v);
+              }}
+            >
               <span className="font-display text-[10px] font-semibold uppercase tracking-[0.2em] text-mut">
                 Or your own Wisp server
               </span>
-              <input
-                defaultValue={wisp}
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && v !== wisp) pickServer(v);
-                }}
-                placeholder={DEFAULT_WISP}
-                spellCheck={false}
-                className="mt-1.5 w-full rounded-lg border border-line bg-bg px-3 py-2 font-mono text-xs text-txt outline-none focus:border-a2"
-              />
-            </label>
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  value={custom}
+                  onChange={(e) => setCustom(e.target.value)}
+                  placeholder="https://chezburgerpro-relay.onrender.com"
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoComplete="off"
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2 font-mono text-xs text-txt outline-none focus:border-a2"
+                />
+                <button
+                  type="submit"
+                  className="sheen metal-fill shrink-0 rounded-md px-3 py-2 font-display text-[10px] font-bold uppercase tracking-[0.15em]"
+                >
+                  Use
+                </button>
+              </div>
+              <p className="mt-2 font-mono text-[10px] text-mut">Active: {wisp}</p>
+            </form>
           </div>
         )}
       </div>
