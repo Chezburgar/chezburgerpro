@@ -72,56 +72,68 @@
   }
 }
 
-/* ---- Signature pieces ---------------------------------------------------- */
+/* ---- Signature pieces ----------------------------------------------------
+   These live in the `components` layer so Tailwind utilities (which sit in the
+   later `utilities` layer) always win a tie. Unlayered rules would beat every
+   utility — that's what made `.sheen`'s `position: relative` override
+   `absolute` and drop the Videos search button out of its input. */
 
-.no-scrollbar {
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+@layer components {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 
-/* Metallic gradient text — the wordmark and section labels. */
-.metal-text {
-  background: linear-gradient(160deg, var(--a1) 10%, var(--a2) 45%, var(--a3) 80%, var(--a1) 110%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
+  /* Metallic gradient text — the wordmark and section labels. */
+  .metal-text {
+    background: linear-gradient(
+      160deg,
+      var(--a1) 10%,
+      var(--a2) 45%,
+      var(--a3) 80%,
+      var(--a1) 110%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 
-/* Metallic fill for seals / primary CTAs. */
-.metal-fill {
-  background: linear-gradient(160deg, var(--a1), var(--a2) 55%, var(--a3));
-  color: var(--ink);
-}
+  /* Metallic fill for seals / primary CTAs. */
+  .metal-fill {
+    background: linear-gradient(160deg, var(--a1), var(--a2) 55%, var(--a3));
+    color: var(--ink);
+  }
 
-/* Hairline gold frame. */
-.gold-frame {
-  border: 1px solid color-mix(in srgb, var(--a2) 45%, var(--line));
-}
+  /* Hairline gold frame. */
+  .gold-frame {
+    border: 1px solid color-mix(in srgb, var(--a2) 45%, var(--line));
+  }
 
-/* Sheen sweep on hover — a light band crosses the surface. */
-.sheen {
-  position: relative;
-  overflow: hidden;
-}
-.sheen::after {
-  content: "";
-  position: absolute;
-  inset: -150% auto -150% -80%;
-  width: 45%;
-  transform: rotate(18deg) translateX(-140%);
-  background: linear-gradient(
-    100deg,
-    transparent,
-    color-mix(in srgb, var(--a1) 32%, transparent),
-    transparent
-  );
-  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-.sheen:hover::after {
-  transform: rotate(18deg) translateX(420%);
+  /* Sheen sweep on hover — a light band crosses the surface. */
+  .sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .sheen::after {
+    content: "";
+    position: absolute;
+    inset: -150% auto -150% -80%;
+    width: 45%;
+    transform: rotate(18deg) translateX(-140%);
+    background: linear-gradient(
+      100deg,
+      transparent,
+      color-mix(in srgb, var(--a1) 32%, transparent),
+      transparent
+    );
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .sheen:hover::after {
+    transform: rotate(18deg) translateX(420%);
+  }
 }
 
 /* Slow rotating ring around the vault seal on the gate screen. */

@@ -1,13 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ytSearch, type YtVideo } from "../ytApi";
 import { recordWatch, topChannels } from "../videoHistory";
 
+const SOUND_KEY = "cbp_shorts_sound";
+const YT_ORIGIN = "https://www.youtube-nocookie.com";
+
+function readSoundPref(): boolean {
+  try {
+    return localStorage.getItem(SOUND_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
 export function ShortsPage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const framesRef = useRef(new Map<string, HTMLIFrameElement>());
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [muted, setMuted] = useState(true);
+  // The viewer's audio preference, remembered across shorts AND visits. Videos
+  // always LOAD muted (browsers block autoplay with sound); we then unmute the
+  // active one over the YouTube iframe API, so scrolling keeps your sound on.
+  const [soundOn, setSoundOn] = useState(readSoundPref);
 
   const seed = topChannels(1)[0]?.channel;
   const shorts = useQuery({
@@ -18,7 +33,48 @@ export function ShortsPage() {
 
   const videos = shorts.data ?? [];
 
-  // Autoplay whichever short is centered in the viewport.
+  // While we are pushing our preference onto a freshly mounted player, ignore
+  // its own mute reports — every short loads muted, so those would otherwise
+  // flip the preference straight back off.
+  const settlingUntil = useRef(0);
+
+  const command = useCallback((id: string, func: string, args: unknown[] = []) => {
+    const frame = framesRef.current.get(id);
+    frame?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args }),
+      YT_ORIGIN,
+    );
+  }, []);
+
+  // Keep the preference in sync when the viewer uses YouTube's OWN mute button
+  // inside the player, so their choice still carries to the next short.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== YT_ORIGIN) return;
+      if (Date.now() < settlingUntil.current) return;
+      let data: { event?: string; info?: { muted?: boolean } };
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (data?.event !== "infoDelivery" || typeof data.info?.muted !== "boolean") return;
+      const next = !data.info.muted;
+      setSoundOn((prev) => {
+        if (prev === next) return prev;
+        try {
+          localStorage.setItem(SOUND_KEY, next ? "on" : "off");
+        } catch {
+          // storage unavailable — preference applies for this visit only
+        }
+        return next;
+      });
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  // Autoplay whichever short is centered in the scroll container.
   useEffect(() => {
     if (videos.length === 0) return;
     const root = containerRef.current;
@@ -28,25 +84,56 @@ export function ShortsPage() {
       (entries) => {
         for (const e of entries) {
           if (e.isIntersecting && e.intersectionRatio > 0.6) {
-            const id = (e.target as HTMLElement).dataset.shortId ?? null;
-            setActiveId(id);
+            setActiveId((e.target as HTMLElement).dataset.shortId ?? null);
           }
         }
       },
       { root, threshold: [0.6] },
     );
     slides.forEach((s) => io.observe(s));
-    if (!activeId) setActiveId(videos[0].id);
+    setActiveId((cur) => cur ?? videos[0].id);
     return () => io.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videos.length]);
+
+  // Apply the audio preference to whichever short is playing. The player
+  // ignores commands until it is ready, so retry briefly after it mounts.
+  useEffect(() => {
+    if (!activeId) return;
+    settlingUntil.current = Date.now() + 3000;
+    let tries = 0;
+    const apply = () => {
+      // Ask the player to report its state back (drives the sync listener).
+      command(activeId, "listening");
+      if (soundOn) {
+        command(activeId, "unMute");
+        command(activeId, "setVolume", [100]);
+      } else {
+        command(activeId, "mute");
+      }
+    };
+    apply();
+    const timer = setInterval(() => {
+      apply();
+      if (++tries >= 8) clearInterval(timer);
+    }, 350);
+    return () => clearInterval(timer);
+  }, [activeId, soundOn, command]);
 
   // Record the active short as watched (feeds recommendations).
   useEffect(() => {
     const v = videos.find((x) => x.id === activeId);
     if (v) recordWatch(v);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId]);
+  }, [activeId, videos]);
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    try {
+      localStorage.setItem(SOUND_KEY, next ? "on" : "off");
+    } catch {
+      // storage unavailable — preference applies for this visit only
+    }
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
@@ -61,10 +148,10 @@ export function ShortsPage() {
           <span className="metal-text">Shorts</span>
         </h1>
         <button
-          onClick={() => setMuted((m) => !m)}
+          onClick={toggleSound}
           className="ml-auto rounded-md border border-a3 px-3 py-2 font-display text-xs font-bold uppercase tracking-[0.12em] text-a1 transition-colors hover:bg-a3/20"
         >
-          {muted ? "🔇 Unmute" : "🔊 Mute"}
+          {soundOn ? "🔊 Sound on" : "🔇 Sound off"}
         </button>
       </div>
 
@@ -90,10 +177,16 @@ export function ShortsPage() {
               >
                 {activeId === v.id ? (
                   <iframe
-                    key={`${v.id}-${muted ? "m" : "s"}`}
-                    src={`https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1&mute=${
-                      muted ? 1 : 0
-                    }&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${v.id}`}
+                    // NOTE: the key must not depend on sound state — remounting
+                    // would restart the video every time you toggle audio.
+                    key={v.id}
+                    ref={(el) => {
+                      if (el) framesRef.current.set(v.id, el);
+                      else framesRef.current.delete(v.id);
+                    }}
+                    src={`${YT_ORIGIN}/embed/${v.id}?autoplay=1&mute=1&enablejsapi=1&origin=${encodeURIComponent(
+                      window.location.origin,
+                    )}&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${v.id}`}
                     title={v.title}
                     className="h-full w-full border-0"
                     allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
