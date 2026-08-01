@@ -13,6 +13,10 @@ export type YtVideo = {
   thumb: string;
   publishedAt?: string;
   duration?: string;
+  /** Length in seconds — present on enriched results (/shorts, /videos, /popular). */
+  seconds?: number;
+  /** YouTube category id; "10" is Music. */
+  categoryId?: string;
   views?: string;
 };
 
@@ -60,3 +64,23 @@ export const ytSearch = (opts: {
 
 export const ytVideos = (ids: string[]) =>
   ids.length ? ytCall("/videos", { ids: ids.join(",") }) : Promise.resolve([]);
+
+/**
+ * Genuinely short clips. YouTube's own "short" filter only means "under four
+ * minutes", so the proxy enriches the results and keeps the ones that really
+ * are short — dropping the Music category unless asked otherwise.
+ */
+export const ytShorts = (opts: {
+  q?: string;
+  channelId?: string;
+  maxSeconds?: number;
+  excludeMusic?: boolean;
+  max?: number;
+}) =>
+  ytCall("/shorts", {
+    q: opts.q ?? "",
+    channelId: opts.channelId ?? "",
+    maxSeconds: opts.maxSeconds ?? 90,
+    excludeMusic: opts.excludeMusic === false ? "0" : "1",
+    max: opts.max ?? 30,
+  });
