@@ -6,6 +6,7 @@ import {
   normalizeInput,
   normalizeWisp,
   proxiedUrl,
+  resetProxy,
   setWispUrl,
   startProxy,
 } from "../uv";
@@ -236,6 +237,22 @@ export function ProxyPage() {
               </div>
               <p className="mt-2 font-mono text-[10px] text-mut">Active: {wisp}</p>
             </form>
+
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="text-xs leading-relaxed text-mut">
+                Still failing after an update? The proxy's background worker can keep running old
+                code. This clears it and reloads.
+              </p>
+              <button
+                onClick={async () => {
+                  await resetProxy();
+                  window.location.reload();
+                }}
+                className="mt-2 rounded-md border border-line px-3 py-2 font-display text-[10px] font-semibold uppercase tracking-[0.15em] text-mut transition-colors hover:border-a3 hover:text-a1"
+              >
+                Reset proxy
+              </button>
+            </div>
           </div>
         )}
       </div>

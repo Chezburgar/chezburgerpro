@@ -6,6 +6,14 @@
 const BASE = import.meta.env.BASE_URL; // "/chezburgerpro/" on GitHub Pages
 export const UV_PREFIX = `${BASE}uv/service/`;
 
+// Bump whenever the files under public/uv/ change. bare-mux loads the transport
+// inside a SharedWorker, which outlives page reloads and keeps serving the
+// module it first imported — so the URL itself has to change to force a fresh
+// copy. (A stale epoxy build here is what kept throwing "headers is not
+// iterable" long after the fix shipped.)
+const ASSET_VERSION = "2";
+const v = (path: string) => `${path}?v=${ASSET_VERSION}`;
+
 export const WISP_SERVERS = [
   { label: "ChezburgerPRO", url: "wss://chezburgerpro-relay.onrender.com/" },
   { label: "Mercury Workshop", url: "wss://wisp.mercurywork.shop/" },
@@ -132,11 +140,33 @@ let activeWisp: string | null = null;
 
 async function getConnection(): Promise<BareMuxConnectionLike> {
   if (connection) return connection;
-  const mod = (await import(/* @vite-ignore */ `${BASE}uv/baremux/index.mjs`)) as {
+  const mod = (await import(/* @vite-ignore */ v(`${BASE}uv/baremux/index.mjs`))) as {
     BareMuxConnection: new (workerPath: string) => BareMuxConnectionLike;
   };
-  connection = new mod.BareMuxConnection(`${BASE}uv/baremux/worker.js`);
+  connection = new mod.BareMuxConnection(v(`${BASE}uv/baremux/worker.js`));
   return connection;
+}
+
+/**
+ * Tear down the proxy: drop the service worker, its caches, and the cached
+ * transport. Used by the "Reset proxy" button so a stale worker can't keep
+ * serving old code after an update.
+ */
+export async function resetProxy(): Promise<void> {
+  connection = null;
+  activeWisp = null;
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.filter((r) => r.scope.includes("/uv/")).map((r) => r.unregister()));
+  } catch {
+    // nothing registered — nothing to clear
+  }
+  try {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch {
+    // Cache Storage unavailable
+  }
 }
 
 /**
@@ -157,17 +187,23 @@ export async function startProxy(rawWisp: string): Promise<void> {
   // worker controlling THIS page, and ours is scoped to /uv/service/, so it
   // would hang forever ("Opening tunnel…" that never finishes).
   const reg = await withTimeout(
-    navigator.serviceWorker.register(`${BASE}uv/sw.js`, { scope: UV_PREFIX }),
+    // updateViaCache: "none" makes the browser revalidate the worker and its
+    // importScripts instead of serving them from the HTTP cache.
+    navigator.serviceWorker.register(`${BASE}uv/sw.js`, {
+      scope: UV_PREFIX,
+      updateViaCache: "none",
+    }),
     20_000,
     "Couldn't install the proxy service worker.",
   );
+  void reg.update().catch(() => {});
   await withTimeout(waitForActivation(reg), 20_000, "The proxy service worker didn't start.");
 
   if (activeWisp !== wisp) {
     await wakeRelay(wisp);
     const conn = await getConnection();
     await withTimeout(
-      conn.setTransport(`${BASE}uv/epoxy/index.mjs`, [{ wisp }]),
+      conn.setTransport(v(`${BASE}uv/epoxy/index.mjs`), [{ wisp }]),
       30_000,
       "The relay didn't respond. It may be asleep, down, or blocked on this network.",
     );
