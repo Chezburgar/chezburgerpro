@@ -7,16 +7,33 @@ const BASE = import.meta.env.BASE_URL; // "/chezburgerpro/" on GitHub Pages
 export const UV_PREFIX = `${BASE}uv/service/`;
 
 export const WISP_SERVERS = [
+  { label: "ChezburgerPRO", url: "wss://chezburgerpro-relay.onrender.com/" },
   { label: "Mercury Workshop", url: "wss://wisp.mercurywork.shop/" },
   { label: "Anura", url: "wss://anura.pro/" },
 ] as const;
 
+/** Our own Render relay — nobody has to type it in. */
 export const DEFAULT_WISP = WISP_SERVERS[0].url;
 const WISP_KEY = "cbp_wisp";
+const MIGRATED_KEY = "cbp_wisp_migrated";
+
+// Public relays we used to default to before we ran our own. Anyone still
+// pointed at one gets moved across once; a later explicit choice sticks.
+const LEGACY_DEFAULTS = new Set(["wss://wisp.mercurywork.shop/", "wss://anura.pro/"]);
 
 export function getWispUrl(): string {
   try {
-    return localStorage.getItem(WISP_KEY) || DEFAULT_WISP;
+    const saved = localStorage.getItem(WISP_KEY);
+    if (!saved) return DEFAULT_WISP;
+    const url = normalizeWisp(saved);
+    // Devices that were pointed at a public relay back when that was the
+    // default shouldn't stay stuck on it now that we run our own.
+    if (LEGACY_DEFAULTS.has(url) && localStorage.getItem(MIGRATED_KEY) !== "1") {
+      localStorage.setItem(MIGRATED_KEY, "1");
+      localStorage.setItem(WISP_KEY, DEFAULT_WISP);
+      return DEFAULT_WISP;
+    }
+    return url;
   } catch {
     return DEFAULT_WISP;
   }
@@ -25,6 +42,8 @@ export function getWispUrl(): string {
 export function setWispUrl(url: string): void {
   try {
     localStorage.setItem(WISP_KEY, normalizeWisp(url));
+    // An explicit choice is final — don't migrate it away later.
+    localStorage.setItem(MIGRATED_KEY, "1");
   } catch {
     // storage unavailable — applies for this visit only
   }
